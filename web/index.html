@@ -1,15 +1,36 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-	<title>Node Service</title>
-	<meta charset="utf-8">
+    <title>Node Service</title>
+    <meta charset="utf-8">
 </head>
+
 <body>
-<h1>Node Service test</h1>
-<a href="/service/userInfo/?name=yyb">get</a><br/>
-<form action="/service/updateUser/" method="post">
-	<input type="text" name="name" value="yb" />
-	<button type="submit">post</button>
-</form>
+    <h1>Node Service test</h1>
+    <a href="/service/userInfo/?name=yyb">get</a>
+    <br/>
+    <form action="/service/updateUser" method="post">
+        <input type="text" name="name" value="yb" />
+        <button type="submit">post</button>
+    </form>
+    <h1>服务器发送事件(Server-Sent Events)</h1>
+    <div id="serverMessage"></div>
+    <script>
+    if (typeof(EventSource) !== "undefined") {
+        var source = new EventSource("/service/sse");
+        /*source.addEventListener("message", function(event) {
+            document.getElementById("serverMessage").innerHTML += event.data + "<br>";
+        });*/
+
+        source.onmessage = function(event) {
+        	// console.log(event);
+            document.getElementById("serverMessage").innerHTML += event.data + "<br>";
+        };
+    } else {
+        document.getElementById("serverMessage").innerHTML = "抱歉，你的浏览器不支持 server-sent 事件...";
+    }
+    </script>
 </body>
+
 </html>
