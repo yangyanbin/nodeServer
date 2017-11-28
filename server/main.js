@@ -15,4 +15,4 @@ route.run(app);
 app.use("/", express.static(filePath));
 app.listen(100);
 
-console.log("Server has started");
+console.log("Server has started prot(100)");
