@@ -1,30 +1,44 @@
 var ufp = require("../urlFilePath/ufp").ufp;
-var jsonFile = require("../jsonRead/jsonRead");
+function run(io) {
 
-function run(app) {
-	var getObj = ufp.get;
-    //get请求
-    for(var url in getObj) {
-        app.get(url, function(req, res) {
-        	jsonFile.read(req,res,getObj[url]);
+    var sseObj = ufp.ws;
+    var users = [];
+    var socketIdMap = {};
+    io.on('connection', function(socket) {
+        //接收并处理客户端发送的事件
+        socket.on('login', function(data) {
+            //将消息输出到控制台
+            console.log(data+" 登录");
+            if(users.indexOf(data)<0){
+                users.push(data);
+                //将用户信息保存在此次连接的socket对象中
+                socket.userName = data;
+                //将当前socket的对应缓存，以应用于私聊
+                socketIdMap[data] = socket.id;
+
+                socket.emit("loginSuccess",data);
+                //在connection回调中socket单对单，只和通信的客户socket通信，通过io.socket来向所有连接的客户通信
+                io.sockets.emit("system","logon",data,users);
+            }else{
+                socket.emit("loginFail",data);
+            }
         });
-    }
 
-    var postObj = ufp.post;
-    //post请求
-    for(var postUrl in postObj){
-    	app.post(postUrl, function(req, res) {
-            jsonFile.write(req,res,postObj[postUrl]);
+        socket.on('SEND', function(from,data) {
+            //会广播到除自己以外的所有人
+            socket.broadcast.emit('ACCEPT',from,data);
         });
-    }
+        socket.on('SINGLESEND', function(from,to,data) {
+            socket.broadcast.to(socketIdMap[to]).broadcast.emit('ACCEPT',from,data);
+        });
 
-    var sseObj = ufp.sse;
-    //server-sent Events服务器推送事件
-    app.get(sseObj.url,function(req,res){
-        res.set('Content-Type', 'text/event-stream');
-        res.set('Cache-Control', 'no-cache');
-        //*换行符必不可少，通过换行符来断定一条消息的结束，负责浏览器会收不到事件
-        res.send("data:"+Date.now()+"\n\n");
+        socket.on('disconnect', function() {
+            if(socket.userName||socket.userName===0){
+                users.splice(users.indexOf(socket.userName),1);
+                socketIdMap[socket.userName] = undefined;
+                socket.broadcast.emit('system',"logout",socket.userName,users);
+            }
+        });
     });
 }
 

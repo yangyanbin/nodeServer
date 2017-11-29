@@ -2,33 +2,111 @@
 <html>
 
 <head>
-    <title>Node Service</title>
+    <title>Listener</title>
     <meta charset="utf-8">
+    <style>
+    header{background:#f5f5f5}
+    textarea{display:block;width:70%;height:300px;outline:none;}
+    select{width:15%;}
+    input{width:50%;}
+    </style>
 </head>
 
 <body>
-    <h1>Node Service test</h1>
-    <a href="/service/userInfo/?name=yyb">get</a>
-    <br/>
-    <form action="/service/updateUser" method="post">
-        <input type="text" name="name" value="yb" />
-        <button type="submit">post</button>
-    </form>
-    <h1>服务器发送事件(Server-Sent Events)</h1>
-    <div id="serverMessage"></div>
+    <header>
+    <h1>Lister</h1>
+    <p id="userCount"></p>
+    </header>
+    <textarea id="textarea" readonly></textarea>
+    <select id="select"></select>
+    <input type="text" name="input" id="input">
+    <button id="send">Send</button>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
     <script>
-    if (typeof(EventSource) !== "undefined") {
-        var source = new EventSource("/service/sse");
-        /*source.addEventListener("message", function(event) {
-            document.getElementById("serverMessage").innerHTML += event.data + "<br>";
-        });*/
-
-        source.onmessage = function(event) {
-        	// console.log(event);
-            document.getElementById("serverMessage").innerHTML += event.data + "<br>";
-        };
-    } else {
-        document.getElementById("serverMessage").innerHTML = "抱歉，你的浏览器不支持 server-sent 事件...";
+    var socket = io.connect(),
+        send = document.getElementById("send"),
+        input = document.getElementById("input");
+    var user = "";
+    //监听socket的connect事件，此事件表示连接已经建立
+    socket.on('connect', function() {
+        console.log("连接服务器成功");
+        var user = prompt("请登录");
+        if(user&&user.trim()){
+            socket.emit("login", user);
+        }
+    });
+    socket.on('loginFail', function(data) {
+        console.log("登录失败 "+data);
+        var user = prompt("已存在，请重新登录");
+        if(user&&user.trim()){
+            socket.emit("login", user);
+        }
+    });
+    socket.on('loginSuccess', function(data) {
+        console.log("登录成功 "+data);
+        user = data;
+    });
+    socket.on('system', function(type,name,data) {
+        if((type==="logon"||type==="logout")&&user){
+            console.log("更新当前用户列表"+data.length);
+            renderSelect(data);
+            if(user!==name){
+                selfPrompt(name+" "+type);
+            }
+        }
+    });
+    send.addEventListener("click", function() {
+        var to = document.getElementById("select").value;
+        if (input.value.trim()&&user) {
+            if(!to){
+                renderTextarea(user+": "+input.value);
+                socket.emit("SEND",user, input.value);
+            }else{
+                renderTextarea(user+": (@"+to+") "+input.value);
+                socket.emit("SINGLESEND",user,to, "(whisper) "+input.value);
+            }
+        }
+        input.value = "";
+    });
+    socket.on('ACCEPT', function(from,data) {
+        renderTextarea(from+": "+data);
+    });
+    function renderTextarea(value){
+        document.getElementById("textarea").value += ("\n"+ value);
+    }
+    function renderSelect(list){
+        var options = [];
+        var disabled = "";
+        options.push("<option value=''>All</option>");
+        for(var i=0,len=list.length;i<len;i++){
+            disabled = list[i]===user?"disabled":"";
+            options.push("<option "+disabled+" value='"+list[i]+"'>"+list[i]+"</option>");
+        }
+        document.getElementById("select").innerHTML = options.join("");
+        document.getElementById("userCount").innerHTML = list.length+" online";
+    }
+    //桌面通知
+    var notificationFlag = false;
+    Notification.requestPermission().then(function(result){
+        notificationFlag = result;
+    });
+    function selfPrompt(msg){
+        if (notificationFlag == "granted") {
+            var notification = new Notification("Tip :", { dir: "rtl", body: msg });
+            notification.onclick = function() {
+                notification.close();
+            }
+        } else {
+            Notification.requestPermission().then(function(result) {
+                notificationFlag = result;
+                if (notificationFlag == "granted") {
+                    var notification = new Notification("Tip :", { dir: "rtl", body: msg });
+                    notification.onclick = function() {
+                        notification.close();
+                    }
+                }
+            });
+        }
     }
     </script>
 </body>

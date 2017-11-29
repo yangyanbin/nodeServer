@@ -4,15 +4,12 @@ var route = require("./serverRoute/route");
 var bodyParser = require('body-parser');
 
 var app = express();
+var server = require('http').createServer(app);
 var filePath = path.resolve(__dirname, "../web");
 
-// parse application/x-www-form-urlencoded  
-app.use(bodyParser.urlencoded({ extended: false }));
-// parse application/json  
-app.use(bodyParser.json());
-
-route.run(app);
+var io = require('socket.io').listen(server);
 app.use("/", express.static(filePath));
-app.listen(100);
+route.run(io);
+server.listen(100);
 
 console.log("Server has started prot(100)");
